@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Actions\Database\StartDatabase;
 use App\Actions\Service\StartService;
 use App\Enums\ApplicationDeploymentStatus;
+use App\Events\ApplicationDeploymentStatusChanged;
 use App\Http\Controllers\Controller;
 use App\Models\Application;
 use App\Models\ApplicationDeploymentQueue;
@@ -254,6 +255,11 @@ class DeployController extends Controller
             $deployment->update([
                 'status' => ApplicationDeploymentStatus::CANCELLED_BY_USER->value,
             ]);
+            event(new ApplicationDeploymentStatusChanged(
+                $deployment_uuid,
+                Application::find($deployment->application_id)?->uuid ?? '',
+                ApplicationDeploymentStatus::CANCELLED_BY_USER->value,
+            ));
 
             // Get the server
             $server = Server::whereTeamId($teamId)->find($build_server_id);

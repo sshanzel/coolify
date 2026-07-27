@@ -3,6 +3,7 @@
 namespace App\Livewire\Project\Application;
 
 use App\Enums\ApplicationDeploymentStatus;
+use App\Events\ApplicationDeploymentStatusChanged;
 use App\Models\Application;
 use App\Models\ApplicationDeploymentQueue;
 use App\Models\Server;
@@ -104,6 +105,11 @@ class DeploymentNavbar extends Component
         $this->application_deployment_queue->update([
             'status' => ApplicationDeploymentStatus::CANCELLED_BY_USER->value,
         ]);
+        event(new ApplicationDeploymentStatusChanged(
+            $deployment_uuid,
+            $this->application->uuid,
+            ApplicationDeploymentStatus::CANCELLED_BY_USER->value,
+        ));
 
         try {
             if ($this->application->settings->is_build_server_enabled) {

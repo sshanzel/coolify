@@ -67,4 +67,9 @@ return [
         'base_url' => env('ZITADEL_BASE_URL'),
     ],
 
+    'shipbot' => [
+        'url' => env('SHIPBOT_URL'),
+        'secret' => env('SHIPBOT_SECRET'),
+    ],
+
 ];

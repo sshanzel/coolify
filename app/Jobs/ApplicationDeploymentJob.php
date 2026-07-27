@@ -6,6 +6,7 @@ use App\Actions\Docker\GetContainersStatus;
 use App\Enums\ApplicationDeploymentStatus;
 use App\Enums\ProcessStatus;
 use App\Events\ApplicationConfigurationChanged;
+use App\Events\ApplicationDeploymentStatusChanged;
 use App\Events\ServiceStatusChanged;
 use App\Exceptions\DeploymentException;
 use App\Models\Application;
@@ -308,6 +309,11 @@ class ApplicationDeploymentJob implements ShouldBeEncrypted, ShouldQueue
             'status' => ApplicationDeploymentStatus::IN_PROGRESS->value,
             'horizon_job_worker' => gethostname(),
         ]);
+        event(new ApplicationDeploymentStatusChanged(
+            $this->deployment_uuid,
+            $this->application->uuid,
+            ApplicationDeploymentStatus::IN_PROGRESS->value,
+        ));
         if ($this->server->isFunctional() === false) {
             $this->application_deployment_queue->addLogEntry('Server is not functional.');
             $this->fail('Server is not functional.');
@@ -4850,6 +4856,11 @@ COPY ./nginx.conf /etc/nginx/conf.d/default.conf");
 
         $this->updateDeploymentStatus($status);
         $this->handleStatusTransition($status);
+        event(new ApplicationDeploymentStatusChanged(
+            $this->deployment_uuid,
+            $this->application->uuid,
+            $status->value,
+        ));
         queue_next_deployment($this->application);
     }
 
