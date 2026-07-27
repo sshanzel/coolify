@@ -20,7 +20,7 @@ class Shipbot extends Controller
 
         $signature = Str::after($request->header('X-Shipbot-Signature', ''), 'sha256=');
         $hmac = hash_hmac('sha256', $request->getContent(), $secret);
-        if (! isDev() && ! hash_equals($hmac, $signature)) {
+        if (! hash_equals($hmac, $signature)) {
             auditLogWebhookFailure('shipbot', 'invalid_signature');
 
             return response()->json(['message' => 'Invalid signature.'], 401);
