@@ -84,12 +84,17 @@
                     <span class="font-mono text-xs">deploy https://github.com/org/repo</span>
                 </div>
             @endforelse
-            <div wire:loading wire:target="send, confirmProposal, cancelProposal, submitSelection"
-                class="self-start px-3 py-2 text-sm dark:text-neutral-400 text-gray-500">Thinking...</div>
+            @if ($running)
+                <div class="self-start px-3 py-2 text-sm dark:text-neutral-400 text-gray-500">Thinking...</div>
+            @else
+                <div wire:loading wire:target="confirmProposal, cancelProposal, submitSelection"
+                    class="self-start px-3 py-2 text-sm dark:text-neutral-400 text-gray-500">Thinking...</div>
+            @endif
         </div>
 
-        <!-- Deployment progress (poll fallback while Echo pushes are the primary path) -->
-        @if ($watching)
+        <!-- Live progress (poll fallback while Echo pushes are the primary path):
+             active while a chat turn runs and while a deployment is watched -->
+        @if ($watching || $running)
             <div wire:poll.5000ms="refreshThread"
                 class="flex items-center gap-2 px-4 py-2 text-xs border-t border-neutral-200 dark:border-coolgray-200 dark:text-neutral-300 text-gray-600">
                 <svg class="w-3 h-3 text-coollabs dark:text-warning animate-spin" xmlns="http://www.w3.org/2000/svg"
@@ -99,7 +104,11 @@
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
                     </path>
                 </svg>
-                Deployment in progress — {{ data_get($watch, 'milestone', 'queued') }}
+                @if ($watching)
+                    Deployment in progress — {{ data_get($watch, 'milestone', 'queued') }}
+                @else
+                    Assistant is working…
+                @endif
             </div>
         @endif
 

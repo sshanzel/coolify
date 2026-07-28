@@ -69,6 +69,101 @@ it('sends a message to shipbot and renders the reply', function () {
     });
 });
 
+it('accepts asynchronously with an optimistic echo and a working indicator', function () {
+    fakeShipbot([
+        'shipbot.test/chat' => Http::response([
+            'thread_id' => 't-1',
+            'run_status' => 'running',
+            'messages' => [['role' => 'user', 'content' => 'deploy https://github.com/a/b']],
+            'pending_proposal' => null,
+            'watch' => null,
+        ], 202),
+    ]);
+
+    Livewire::test(DeploymentAssistant::class)
+        ->set('prompt', 'deploy https://github.com/a/b')
+        ->call('send')
+        ->assertSet('running', true)
+        ->assertSet('prompt', '')
+        ->assertSet('pendingUserMessage', 'deploy https://github.com/a/b')
+        ->assertSee('deploy https://github.com/a/b')
+        ->assertSee('Assistant is working')
+        ->assertSeeHtml('wire:poll.5000ms="refreshThread"');
+});
+
+it('keeps the optimistic bubble when a lagging refresh lacks the message', function () {
+    Http::fake([
+        'shipbot.test/threads/t-1*' => Http::response([
+            'thread_id' => 't-1',
+            'run_status' => 'running',
+            'messages' => [['role' => 'user', 'content' => 'an older question']],
+            'pending_proposal' => null,
+            'watch' => null,
+        ]),
+        'shipbot.test/threads*' => Http::response(['threads' => []]),
+    ]);
+
+    Livewire::test(DeploymentAssistant::class)
+        ->set('threadId', 't-1')
+        ->set('running', true)
+        ->set('pendingUserMessage', 'deploy it')
+        ->call('refreshThread')
+        ->assertSet('running', true)
+        ->assertSet('pendingUserMessage', 'deploy it')
+        ->assertSee('deploy it');
+});
+
+it('resolves the optimistic bubble once the transcript contains it', function () {
+    Http::fake([
+        'shipbot.test/threads/t-1*' => Http::response([
+            'thread_id' => 't-1',
+            'run_status' => 'idle',
+            'messages' => [
+                ['role' => 'user', 'content' => 'deploy it'],
+                ['role' => 'assistant', 'content' => 'Deployment queued!'],
+            ],
+            'pending_proposal' => null,
+            'watch' => null,
+        ]),
+        'shipbot.test/threads*' => Http::response(['threads' => []]),
+    ]);
+
+    Livewire::test(DeploymentAssistant::class)
+        ->set('threadId', 't-1')
+        ->set('running', true)
+        ->set('pendingUserMessage', 'deploy it')
+        ->call('refreshThread')
+        ->assertSet('running', false)
+        ->assertSet('pendingUserMessage', null)
+        ->assertSee('Deployment queued!');
+});
+
+it('shows the poll strip while a chat turn is running without a watch', function () {
+    fakeShipbot();
+
+    Livewire::test(DeploymentAssistant::class)
+        ->set('running', true)
+        ->assertSeeHtml('wire:poll.5000ms="refreshThread"')
+        ->assertSee('Assistant is working');
+});
+
+it('surfaces the busy rejection and keeps the draft', function () {
+    fakeShipbot([
+        'shipbot.test/chat' => Http::response(
+            ['detail' => "I'm still working on your previous message — give me a moment and try again."],
+            409,
+        ),
+    ]);
+
+    Livewire::test(DeploymentAssistant::class)
+        ->set('prompt', 'another thing')
+        ->call('send')
+        ->assertSet('prompt', 'another thing')
+        ->assertSet('running', false)
+        ->assertSet('messages', [])
+        ->assertDispatched('error');
+});
+
 it('shows the proposal card when shipbot pauses for confirmation', function () {
     fakeShipbot([
         'shipbot.test/chat' => Http::response([
