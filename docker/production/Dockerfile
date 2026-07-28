@@ -22,6 +22,19 @@ FROM serversideup/php:${SERVERSIDEUP_PHP_VERSION} AS base
 
 USER root
 
+# --- Optional extra root CAs for build environments behind TLS-intercepting
+# proxies (e.g. corporate egress). Drop *.pem files into docker/certs/
+# (gitignored) — an empty directory makes this a no-op.
+COPY docker/certs/ /usr/local/share/ca-certificates/extra/
+RUN set -eux; \
+    : > /usr/local/share/ca-certificates/extra-cas.crt; \
+    for pem in /usr/local/share/ca-certificates/extra/*.pem; do \
+        [ -f "$pem" ] || continue; \
+        cat "$pem" >> /usr/local/share/ca-certificates/extra-cas.crt; \
+    done; \
+    cat /usr/local/share/ca-certificates/extra-cas.crt >> /etc/ssl/certs/ca-certificates.crt
+ENV NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/extra-cas.crt
+
 # Install patched Nginx from the official nginx.org Alpine repository
 ARG NGINX_VERSION
 RUN set -eux; \
@@ -53,6 +66,17 @@ USER www-data
 # =================================================================
 FROM node:24-alpine AS static-assets
 
+# --- Optional extra root CAs (see note in base stage) ---
+COPY docker/certs/ /usr/local/share/ca-certificates/extra/
+RUN set -eux; \
+    : > /usr/local/share/ca-certificates/extra-cas.crt; \
+    for pem in /usr/local/share/ca-certificates/extra/*.pem; do \
+        [ -f "$pem" ] || continue; \
+        cat "$pem" >> /usr/local/share/ca-certificates/extra-cas.crt; \
+    done; \
+    cat /usr/local/share/ca-certificates/extra-cas.crt >> /etc/ssl/certs/ca-certificates.crt
+ENV NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/extra-cas.crt
+
 WORKDIR /app
 COPY package*.json vite.config.js postcss.config.cjs ./
 RUN --mount=type=cache,target=/root/.npm \
@@ -81,6 +105,17 @@ ARG CI=true
 WORKDIR /var/www/html
 
 USER root
+
+# --- Optional extra root CAs (see note in base stage) ---
+COPY docker/certs/ /usr/local/share/ca-certificates/extra/
+RUN set -eux; \
+    : > /usr/local/share/ca-certificates/extra-cas.crt; \
+    for pem in /usr/local/share/ca-certificates/extra/*.pem; do \
+        [ -f "$pem" ] || continue; \
+        cat "$pem" >> /usr/local/share/ca-certificates/extra-cas.crt; \
+    done; \
+    cat /usr/local/share/ca-certificates/extra-cas.crt >> /etc/ssl/certs/ca-certificates.crt
+ENV NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/extra-cas.crt
 
 # Install patched Nginx from the official nginx.org Alpine repository
 RUN set -eux; \

@@ -10,6 +10,20 @@ ARG TARGETPLATFORM
 ARG CLOUDFLARED_VERSION
 
 WORKDIR /terminal
+
+# --- Optional extra root CAs for build environments behind TLS-intercepting
+# proxies (e.g. corporate egress). Drop *.pem files into docker/certs/
+# (gitignored) — an empty directory makes this a no-op.
+COPY docker/certs/ /usr/local/share/ca-certificates/extra/
+RUN set -eux; \
+    : > /usr/local/share/ca-certificates/extra-cas.crt; \
+    for pem in /usr/local/share/ca-certificates/extra/*.pem; do \
+        [ -f "$pem" ] || continue; \
+        cat "$pem" >> /usr/local/share/ca-certificates/extra-cas.crt; \
+    done; \
+    cat /usr/local/share/ca-certificates/extra-cas.crt >> /etc/ssl/certs/ca-certificates.crt
+ENV NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/extra-cas.crt
+
 RUN apk upgrade --no-cache && \
     apk add --no-cache openssh-client make g++ python3 curl
 COPY docker/coolify-realtime/package*.json ./
