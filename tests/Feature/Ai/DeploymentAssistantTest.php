@@ -92,7 +92,32 @@ it('shows the proposal card when shipbot pauses for confirmation', function () {
         ->call('send')
         ->assertSee('Deployment proposal')
         ->assertSee('hetzner-1')
-        ->assertSee('Confirm');
+        ->assertSee('Confirm')
+        ->assertDontSee('Compose file')
+        ->assertDontSee('Base directory');
+});
+
+it('renders file locations on the proposal card when shipbot sends them', function () {
+    fakeShipbot();
+
+    Livewire::test(DeploymentAssistant::class)
+        ->set('pendingProposal', [
+            'kind' => 'deployment_proposal',
+            'repo_url' => 'https://github.com/a/b',
+            'branch' => 'main',
+            'server_name' => 'hetzner-1',
+            'project_name' => 'sandbox',
+            'environment_name' => 'production',
+            'build_pack' => 'dockercompose',
+            'port' => 3000,
+            'docker_compose_location' => '/docker-compose.yml',
+            'base_directory' => '/services/api',
+        ])
+        ->assertSee('Compose file')
+        ->assertSee('/docker-compose.yml')
+        ->assertSee('Base directory')
+        ->assertSee('/services/api')
+        ->assertDontSee('Dockerfile');
 });
 
 it('renders a generic card for non-deployment proposals', function () {
