@@ -1,6 +1,4 @@
-<div x-data="{ expanded: @entangle('expanded') }"
-    class="fixed bottom-0 left-0 z-60 mb-16 ml-4 transition-[left] duration-200"
-    :class="collapsed ? 'lg:left-16' : 'lg:left-56'">
+<div x-data="{ expanded: @entangle('expanded') }" class="fixed bottom-0 right-0 z-60 mb-16 mr-4">
     <!-- Launcher -->
     <button @click="expanded = !expanded"
         class="flex items-center gap-2 px-4 py-2 rounded-lg shadow-lg transition-all duration-200 dark:bg-coolgray-100 bg-white dark:border dark:border-coolgray-200 hover:shadow-xl">
@@ -22,7 +20,7 @@
         x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0"
         x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0"
         x-transition:leave-end="opacity-0 translate-y-2" x-cloak
-        class="absolute bottom-full mb-2 w-96 rounded-lg shadow-xl dark:bg-coolgray-100 bg-white dark:border dark:border-coolgray-200">
+        class="absolute bottom-full right-0 mb-2 w-96 rounded-lg shadow-xl dark:bg-coolgray-100 bg-white dark:border dark:border-coolgray-200">
         <!-- Header -->
         <div class="flex items-center justify-between px-4 py-2 border-b border-neutral-200 dark:border-coolgray-200">
             <span class="text-sm font-medium dark:text-neutral-200 text-gray-800">Deployment Assistant</span>
