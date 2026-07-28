@@ -84,7 +84,7 @@
                     <span class="font-mono text-xs">deploy https://github.com/org/repo</span>
                 </div>
             @endforelse
-            <div wire:loading wire:target="send, confirmProposal, cancelProposal"
+            <div wire:loading wire:target="send, confirmProposal, cancelProposal, submitSelection"
                 class="self-start px-3 py-2 text-sm dark:text-neutral-400 text-gray-500">Thinking...</div>
         </div>
 
@@ -124,6 +124,29 @@
                         <dd>{{ data_get($pendingProposal, 'build_pack') }} (port
                             {{ data_get($pendingProposal, 'port') }})</dd>
                     </dl>
+                @elseif (data_get($pendingProposal, 'kind') === 'selection_proposal')
+                    <div class="mb-2 text-xs font-medium uppercase dark:text-neutral-400 text-gray-500">
+                        {{ data_get($pendingProposal, 'title', 'Choose an option') }}</div>
+                    @if (filled(data_get($pendingProposal, 'reason')))
+                        <p class="mb-2 text-xs dark:text-neutral-400 text-gray-600">
+                            {{ data_get($pendingProposal, 'reason') }}</p>
+                    @endif
+                    <div class="flex flex-col gap-1">
+                        @foreach (data_get($pendingProposal, 'options', []) as $option)
+                            <label
+                                class="flex items-start gap-2 px-2 py-1.5 rounded cursor-pointer text-xs dark:text-neutral-300 text-gray-700 dark:hover:bg-coolgray-200 hover:bg-neutral-100">
+                                <input type="radio" name="assistant-selection" wire:model="selectedOptionId"
+                                    value="{{ data_get($option, 'id') }}" class="mt-0.5" />
+                                <span>
+                                    <span class="font-medium">{{ data_get($option, 'label') }}</span>
+                                    @if (filled(data_get($option, 'detail')))
+                                        <span class="block dark:text-neutral-500 text-gray-500">
+                                            {{ data_get($option, 'detail') }}</span>
+                                    @endif
+                                </span>
+                            </label>
+                        @endforeach
+                    </div>
                 @else
                     <div class="mb-2 text-xs font-medium uppercase dark:text-neutral-400 text-gray-500">
                         {{ data_get($pendingProposal, 'title', 'Proposal') }}</div>
@@ -138,11 +161,19 @@
                         @endforeach
                     </dl>
                 @endif
-                <div class="flex gap-2 mt-3">
-                    <x-forms.button isHighlighted wire:click="confirmProposal" wire:target="confirmProposal">
-                        Confirm</x-forms.button>
-                    <x-forms.button wire:click="cancelProposal" wire:target="cancelProposal">Cancel</x-forms.button>
-                </div>
+                @if (data_get($pendingProposal, 'kind') === 'selection_proposal')
+                    <div class="flex gap-2 mt-3">
+                        <x-forms.button isHighlighted wire:click="submitSelection" wire:target="submitSelection">
+                            Select</x-forms.button>
+                        <x-forms.button wire:click="cancelProposal" wire:target="cancelProposal">Cancel</x-forms.button>
+                    </div>
+                @else
+                    <div class="flex gap-2 mt-3">
+                        <x-forms.button isHighlighted wire:click="confirmProposal" wire:target="confirmProposal">
+                            Confirm</x-forms.button>
+                        <x-forms.button wire:click="cancelProposal" wire:target="cancelProposal">Cancel</x-forms.button>
+                    </div>
+                @endif
             </div>
         @endif
 

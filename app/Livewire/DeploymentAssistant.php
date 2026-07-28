@@ -24,6 +24,8 @@ class DeploymentAssistant extends Component
 
     public ?array $pendingProposal = null;
 
+    public ?string $selectedOptionId = null;
+
     public ?array $watch = null;
 
     public bool $watching = false;
@@ -68,7 +70,13 @@ class DeploymentAssistant extends Component
                 ->get($this->shipbotUrl('/threads/'.$this->threadId), $this->identity())
                 ->throw();
             $this->messages = $detail->json('messages', []);
-            $this->pendingProposal = $detail->json('pending_proposal');
+            $incoming = $detail->json('pending_proposal');
+            if ($incoming !== $this->pendingProposal) {
+                // A different card arrived — an in-flight pick belongs to the
+                // old one. Same-card refreshes keep the user's pick.
+                $this->selectedOptionId = null;
+            }
+            $this->pendingProposal = $incoming;
             $this->setWatch($detail->json('watch'));
         } catch (\Throwable) {
             // Polling/echo refreshes must fail silently — no error toasts.
@@ -104,9 +112,33 @@ class DeploymentAssistant extends Component
         return $this->resolveProposal(approved: false);
     }
 
+    public function submitSelection()
+    {
+        try {
+            $this->ensureAllowed();
+            if (blank($this->threadId) || data_get($this->pendingProposal, 'kind') !== 'selection_proposal') {
+                $this->dispatch('error', 'There is no pending selection.');
+
+                return;
+            }
+            // wire:click arguments come from the browser — only ids the card
+            // actually offered may reach Shipbot.
+            $offered = collect(data_get($this->pendingProposal, 'options', []))->pluck('id')->filter()->all();
+            if (! in_array($this->selectedOptionId, $offered, true)) {
+                $this->dispatch('error', 'Pick one of the offered options first.');
+
+                return;
+            }
+
+            return $this->resolveProposal(approved: true, selectedOptionId: $this->selectedOptionId);
+        } catch (\Throwable $e) {
+            return handleError($e, $this);
+        }
+    }
+
     public function newConversation(): void
     {
-        $this->reset('threadId', 'messages', 'pendingProposal', 'watch', 'watching');
+        $this->reset('threadId', 'messages', 'pendingProposal', 'selectedOptionId', 'watch', 'watching');
     }
 
     public function render()
@@ -114,7 +146,7 @@ class DeploymentAssistant extends Component
         return view('livewire.deployment-assistant');
     }
 
-    private function resolveProposal(bool $approved)
+    private function resolveProposal(bool $approved, ?string $selectedOptionId = null)
     {
         try {
             $this->ensureAllowed();
@@ -124,14 +156,18 @@ class DeploymentAssistant extends Component
                 return;
             }
 
-            $response = $this->client()->timeout(120)->post($this->shipbotUrl('/chat/confirm'), [
+            $payload = [
                 ...$this->identity(),
                 'thread_id' => $this->threadId,
                 'approved' => $approved,
-            ]);
+            ];
+            if (filled($selectedOptionId)) {
+                $payload['selected_option_id'] = $selectedOptionId;
+            }
+            $response = $this->client()->timeout(120)->post($this->shipbotUrl('/chat/confirm'), $payload);
             $this->applyResponse($response);
             if ($approved) {
-                $this->dispatch('success', 'Deployment confirmed.');
+                $this->dispatch('success', $selectedOptionId === null ? 'Deployment confirmed.' : 'Selection submitted.');
             }
         } catch (\Throwable $e) {
             return handleError($e, $this);
@@ -186,6 +222,8 @@ class DeploymentAssistant extends Component
         $this->threadId = $response->json('thread_id', $this->threadId);
         $this->messages = $response->json('messages', []);
         $this->pendingProposal = $response->json('pending_proposal');
+        // A new (or cleared) card must never inherit the previous pick.
+        $this->selectedOptionId = null;
         $this->setWatch($response->json('watch'));
     }
 

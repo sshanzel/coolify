@@ -210,6 +210,104 @@ it('cancels a proposal', function () {
     Http::assertSent(fn ($request) => $request->url() === 'http://shipbot.test/chat/confirm' && $request['approved'] === false);
 });
 
+it('renders the selection card with its options', function () {
+    fakeShipbot();
+
+    Livewire::test(DeploymentAssistant::class)
+        ->set('pendingProposal', [
+            'kind' => 'selection_proposal',
+            'title' => 'Choose a server',
+            'reason' => 'Several servers can host this app.',
+            'options' => [
+                ['id' => 'srv-1', 'label' => 'hetzner-prod', 'detail' => '2 projects'],
+                ['id' => 'srv-2', 'label' => 'staging-box', 'detail' => ''],
+            ],
+        ])
+        ->assertSee('Choose a server')
+        ->assertSee('hetzner-prod')
+        ->assertSee('2 projects')
+        ->assertSee('staging-box')
+        ->assertSee('Select')
+        ->assertDontSee('Confirm');
+});
+
+it('submits the picked option to shipbot', function () {
+    fakeShipbot([
+        'shipbot.test/chat/confirm' => Http::response([
+            'thread_id' => 't-1',
+            'messages' => [['role' => 'assistant', 'content' => 'Using staging-box.']],
+            'pending_proposal' => null,
+        ]),
+    ]);
+
+    Livewire::test(DeploymentAssistant::class)
+        ->set('threadId', 't-1')
+        ->set('pendingProposal', [
+            'kind' => 'selection_proposal',
+            'title' => 'Choose a server',
+            'options' => [
+                ['id' => 'srv-1', 'label' => 'hetzner-prod'],
+                ['id' => 'srv-2', 'label' => 'staging-box'],
+            ],
+        ])
+        ->set('selectedOptionId', 'srv-2')
+        ->call('submitSelection')
+        ->assertSet('pendingProposal', null)
+        ->assertSet('selectedOptionId', null)
+        ->assertDispatched('success')
+        ->assertSee('Using staging-box.');
+
+    Http::assertSent(fn ($request) => $request->url() === 'http://shipbot.test/chat/confirm'
+        && $request['approved'] === true
+        && $request['selected_option_id'] === 'srv-2');
+});
+
+it('rejects submitting an id the card never offered', function () {
+    fakeShipbot();
+
+    Livewire::test(DeploymentAssistant::class)
+        ->set('threadId', 't-1')
+        ->set('pendingProposal', [
+            'kind' => 'selection_proposal',
+            'title' => 'Choose a server',
+            'options' => [['id' => 'srv-1', 'label' => 'hetzner-prod'], ['id' => 'srv-2', 'label' => 'staging-box']],
+        ])
+        ->set('selectedOptionId', 'srv-666')
+        ->call('submitSelection')
+        ->assertDispatched('error');
+
+    Http::assertNotSent(fn ($request) => $request->url() === 'http://shipbot.test/chat/confirm');
+});
+
+it('rejects submitting before picking an option', function () {
+    fakeShipbot();
+
+    Livewire::test(DeploymentAssistant::class)
+        ->set('threadId', 't-1')
+        ->set('pendingProposal', [
+            'kind' => 'selection_proposal',
+            'title' => 'Choose a server',
+            'options' => [['id' => 'srv-1', 'label' => 'hetzner-prod'], ['id' => 'srv-2', 'label' => 'staging-box']],
+        ])
+        ->call('submitSelection')
+        ->assertDispatched('error');
+
+    Http::assertNotSent(fn ($request) => $request->url() === 'http://shipbot.test/chat/confirm');
+});
+
+it('rejects submitting a selection when the pending card is not one', function () {
+    fakeShipbot();
+
+    Livewire::test(DeploymentAssistant::class)
+        ->set('threadId', 't-1')
+        ->set('pendingProposal', ['kind' => 'deployment_proposal'])
+        ->set('selectedOptionId', 'srv-1')
+        ->call('submitSelection')
+        ->assertDispatched('error');
+
+    Http::assertNotSent(fn ($request) => $request->url() === 'http://shipbot.test/chat/confirm');
+});
+
 it('rejects confirming when nothing is pending', function () {
     fakeShipbot();
 
