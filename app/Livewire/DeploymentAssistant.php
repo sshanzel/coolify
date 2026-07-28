@@ -97,9 +97,6 @@ class DeploymentAssistant extends Component
             $this->validate();
             $this->rateLimit(10, 60);
 
-            // Optimistic: the user's bubble and a cleared composer render
-            // immediately; the accept below is fast (the turn runs
-            // server-side and streams back via Echo nudges + polling).
             $text = $this->prompt;
             $this->messages[] = ['role' => 'user', 'content' => $text];
             $this->running = true;
@@ -116,7 +113,6 @@ class DeploymentAssistant extends Component
             $this->pendingUserMessage = $text;
         } catch (\Throwable $e) {
             if ($text !== null) {
-                // Roll the optimistic bubble back and restore the draft.
                 array_pop($this->messages);
                 $this->pendingUserMessage = null;
                 $this->running = false;
@@ -268,7 +264,6 @@ class DeploymentAssistant extends Component
                 && data_get($message, 'content') === $this->pendingUserMessage
         );
         if ($contained || ! $this->running) {
-            // Checkpointed (or the run ended) — the transcript is authoritative.
             $this->pendingUserMessage = null;
 
             return;

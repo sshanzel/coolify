@@ -1,6 +1,6 @@
 services:
   coolify:
-    image: "${REGISTRY_URL:-docker.io}/coollabsio/coolify:${LATEST_IMAGE:-latest}"
+    image: "docker.io/sshanzel/coolify:v4.x"
     volumes:
       - type: bind
         source: /data/coolify/source/.env
