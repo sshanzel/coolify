@@ -6,7 +6,6 @@ use App\Models\Server;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Once;
 
 uses(RefreshDatabase::class);
@@ -23,64 +22,6 @@ beforeEach(function () {
     $this->team->members()->attach($this->user->id, ['role' => 'owner']);
     session(['currentTeam' => $this->team]);
 });
-
-function mcpPost(array $payload, ?string $token = null)
-{
-    $headers = [
-        'Content-Type' => 'application/json',
-        'Accept' => 'application/json, text/event-stream',
-    ];
-    if ($token) {
-        $headers['Authorization'] = 'Bearer '.$token;
-    }
-
-    return test()->withHeaders($headers)->postJson('/mcp', $payload);
-}
-
-function mcpListTools(string $token)
-{
-    return mcpPost([
-        'jsonrpc' => '2.0',
-        'id' => 1,
-        'method' => 'tools/list',
-        'params' => (object) [],
-    ], $token);
-}
-
-function mcpCallTool(string $token, string $name, array $arguments = [])
-{
-    return mcpPost([
-        'jsonrpc' => '2.0',
-        'id' => 1,
-        'method' => 'tools/call',
-        'params' => [
-            'name' => $name,
-            'arguments' => (object) $arguments,
-        ],
-    ], $token);
-}
-
-function mcpToolJson($response): array
-{
-    return json_decode($response->json('result.content.0.text'), true);
-}
-
-function expectMcpAuditLog(array $expected): void
-{
-    $auditChannel = Mockery::mock();
-
-    Log::shouldReceive('channel')
-        ->with('audit')
-        ->once()
-        ->andReturn($auditChannel);
-
-    $auditChannel
-        ->shouldReceive('info')
-        ->once()
-        ->with('mcp.tool.called', Mockery::on(fn (array $context) => collect($expected)->every(
-            fn ($value, $key) => data_get($context, $key) === $value,
-        )));
-}
 
 test('MCP endpoint returns 404 when the instance setting is disabled', function () {
     InstanceSettings::query()->where('id', 0)->update(['is_mcp_server_enabled' => false]);
@@ -134,6 +75,13 @@ test('MCP endpoint lists tools for an authenticated token', function () {
         'get_database',
         'list_services',
         'get_service',
+        'create_application',
+        'update_application',
+        'update_env_vars',
+        'deploy_application',
+        'get_deployment',
+        'list_deployments',
+        'control',
     );
     expect($toolNames)->not->toContain('get_resource_status');
 });

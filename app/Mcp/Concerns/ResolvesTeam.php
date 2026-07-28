@@ -23,6 +23,18 @@ trait ResolvesTeam
             return Response::error('Invalid token.');
         }
 
+        if ($ability !== 'read') {
+            $teamId = $this->resolveTeamId($request);
+            if (is_null($teamId) || ! $user->isAdminOfTeam($teamId)) {
+                $this->auditMcpTool($request, $tool, 'denied', [
+                    'reason' => 'member_role_restriction',
+                    'required_ability' => $ability,
+                ]);
+
+                return Response::error('This token\'s permissions exceed your current role as a team member. Members are restricted to read-only MCP access.');
+            }
+        }
+
         if ($token->can('root') || $token->can($ability)) {
             return null;
         }
