@@ -57,6 +57,15 @@ slips through, that log line is where to start.
 
 ---
 
+## Planned work
+
+- **Self-hosted GitLab integration** — a first-class GitLab source (HTTPS auth, nested
+  subgroups, an SSRF allowlist for internal hosts, auto-registered deploy webhooks), to
+  replace the current manual `git_repository` URL hack. Design + workstreams + phasing:
+  [`docs/gitlab-integration-plan.md`](docs/gitlab-integration-plan.md).
+
+---
+
 ## Merging upstream
 
 ```bash
