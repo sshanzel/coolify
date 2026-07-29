@@ -132,18 +132,28 @@
                         <dt class="font-medium">Build pack</dt>
                         <dd>{{ data_get($pendingProposal, 'build_pack') }} (port
                             {{ data_get($pendingProposal, 'port') }})</dd>
-                        @if (filled(data_get($pendingProposal, 'docker_compose_location')))
-                            <dt class="font-medium">Compose file</dt>
-                            <dd class="font-mono">{{ data_get($pendingProposal, 'docker_compose_location') }}</dd>
-                        @endif
-                        @if (filled(data_get($pendingProposal, 'dockerfile_location')))
-                            <dt class="font-medium">Dockerfile</dt>
-                            <dd class="font-mono">{{ data_get($pendingProposal, 'dockerfile_location') }}</dd>
-                        @endif
-                        @if (filled(data_get($pendingProposal, 'base_directory')))
-                            <dt class="font-medium">Base directory</dt>
-                            <dd class="font-mono">{{ data_get($pendingProposal, 'base_directory') }}</dd>
-                        @endif
+                        {{-- Optional settings Shipbot may send; each is rendered
+                             only when present so the user confirms exactly what
+                             will be created. --}}
+                        @foreach ([
+            'name' => 'Name',
+            'description' => 'Description',
+            'domains' => 'Domain',
+            'docker_compose_location' => 'Compose file',
+            'dockerfile_location' => 'Dockerfile',
+            'base_directory' => 'Base directory',
+            'publish_directory' => 'Publish directory',
+            'destination_uuid' => 'Destination',
+            'git_commit_sha' => 'Commit',
+            'install_command' => 'Install command',
+            'build_command' => 'Build command',
+            'start_command' => 'Start command',
+        ] as $key => $label)
+                            @if (filled(data_get($pendingProposal, $key)))
+                                <dt class="font-medium">{{ $label }}</dt>
+                                <dd class="font-mono break-all">{{ data_get($pendingProposal, $key) }}</dd>
+                            @endif
+                        @endforeach
                     </dl>
                 @elseif (data_get($pendingProposal, 'kind') === 'selection_proposal')
                     <div class="mb-2 text-xs font-medium uppercase dark:text-neutral-400 text-gray-500">

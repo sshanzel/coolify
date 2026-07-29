@@ -530,3 +530,48 @@ it('renders the widget for members too', function () {
 
     $this->get('/')->assertOk()->assertSee('deployment-assistant');
 });
+
+it('renders every optional setting the proposal carries', function () {
+    fakeShipbot();
+
+    Livewire::test(DeploymentAssistant::class)
+        ->set('pendingProposal', [
+            'kind' => 'deployment_proposal',
+            'repo_url' => 'https://github.com/a/b',
+            'branch' => 'main',
+            'server_name' => 'hetzner-1',
+            'project_name' => 'sandbox',
+            'environment_name' => 'production',
+            'build_pack' => 'nixpacks',
+            'port' => 3000,
+            'name' => 'b-a1b2c3',
+            'domains' => 'https://b.example.com',
+            'start_command' => 'node server.js',
+        ])
+        ->assertSee('Name')
+        ->assertSee('b-a1b2c3')
+        ->assertSee('Domain')
+        ->assertSee('https://b.example.com')
+        ->assertSee('Start command')
+        ->assertSee('node server.js')
+        ->assertDontSee('Publish directory');
+});
+
+it('renders the control proposal through the generic card', function () {
+    fakeShipbot();
+
+    Livewire::test(DeploymentAssistant::class)
+        ->set('pendingProposal', [
+            'kind' => 'control_proposal',
+            'title' => 'Stop application',
+            'reason' => 'user asked to take staging down',
+            'summary' => [
+                ['label' => 'application', 'value' => 'app-1'],
+                ['label' => 'action', 'value' => 'stop'],
+            ],
+        ])
+        ->assertSee('Stop application')
+        ->assertSee('action')
+        ->assertSee('stop')
+        ->assertSee('Confirm');
+});
