@@ -27,6 +27,7 @@ services:
       timeout: 2s
     volumes:
       - .:/var/www/html/:cached
+      - ./docker/development/opcache.ini:/usr/local/etc/php/conf.d/zz-opcache.ini:ro
       - dev_backups_data:/var/www/html/storage/app/backups
     networks:
       - coolify
