@@ -3896,6 +3896,69 @@ NGINX;
     }
 }
 
+/**
+ * Make a Docker Compose file parseable by Coolify's YAML parser (Symfony YAML).
+ *
+ * Symfony YAML cannot parse some perfectly valid Docker Compose files — most
+ * notably ones using a YAML anchor placed on its own line before a block
+ * collection (`&anchor` / `*alias`, the Apache Superset shape, among many). If
+ * the content already parses we return it untouched (zero behaviour change for
+ * everything that already works). Only when Symfony throws do we fall back to
+ * `yq 'explode(.)'`, which expands anchors/aliases while preserving relative
+ * paths (`./x`) and `${VARS}`, and use that output. `yq` (mikefarah) is a
+ * required system dependency baked into the image; if it is unavailable or
+ * cannot fix the file, the ORIGINAL Symfony error is re-thrown (the useful one).
+ *
+ * Every fallback logs a greppable `[compose-normalize]` warning — grep the logs
+ * for `compose-normalize` to find where our parser stepped in and why.
+ */
+function normalizeDockerComposeYaml(string $composeFileContent, array $logContext = []): string
+{
+    try {
+        \Symfony\Component\Yaml\Yaml::parse($composeFileContent);
+
+        return $composeFileContent;
+    } catch (\Symfony\Component\Yaml\Exception\ParseException $symfonyError) {
+        try {
+            // Resolve the binary: the image installs it at /usr/local/bin/yq;
+            // fall back to PATH so it also works in test/dev environments.
+            $yqBinary = collect(['/usr/local/bin/yq', '/usr/bin/yq'])->first(fn ($path) => is_executable($path)) ?? 'yq';
+            // Array form (no /bin/sh): the compose is fed on stdin, never
+            // interpolated into a shell string — untrusted content can't reach a shell.
+            $yq = new \Symfony\Component\Process\Process([$yqBinary, 'explode(.)']);
+            $yq->setInput($composeFileContent);
+            $yq->setTimeout(30);
+            $yq->run();
+
+            if ($yq->isSuccessful()) {
+                $exploded = $yq->getOutput();
+                // Confirm the normalized output actually parses before trusting it.
+                \Symfony\Component\Yaml\Yaml::parse($exploded);
+
+                \Illuminate\Support\Facades\Log::warning('[compose-normalize] Symfony YAML could not parse this compose file; normalized it with `yq explode` (anchor/alias expansion) and used the result. If this resource misbehaves, start debugging here.', array_merge($logContext, [
+                    'symfony_error' => $symfonyError->getMessage(),
+                ]));
+
+                return $exploded;
+            }
+
+            \Illuminate\Support\Facades\Log::warning('[compose-normalize] `yq explode` fallback failed to normalize the compose file; surfacing the original Symfony parse error.', array_merge($logContext, [
+                'yq_exit_code' => $yq->getExitCode(),
+                'yq_stderr' => str($yq->getErrorOutput())->limit(500)->toString(),
+                'symfony_error' => $symfonyError->getMessage(),
+            ]));
+        } catch (\Throwable $normalizeError) {
+            \Illuminate\Support\Facades\Log::warning('[compose-normalize] the compose normalization fallback threw while running; surfacing the original Symfony parse error.', array_merge($logContext, [
+                'normalize_error' => $normalizeError->getMessage(),
+                'symfony_error' => $symfonyError->getMessage(),
+            ]));
+        }
+
+        // Fallback did not work — surface the original, most useful error.
+        throw $symfonyError;
+    }
+}
+
 function convertGitUrl(string $gitRepository, string $deploymentType, GithubApp|GitlabApp|null $source = null): array
 {
     $repository = $gitRepository;

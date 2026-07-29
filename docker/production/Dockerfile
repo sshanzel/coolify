@@ -3,6 +3,8 @@
 ARG SERVERSIDEUP_PHP_VERSION=8.4-fpm-nginx-alpine
 # https://github.com/minio/mc/releases
 ARG MINIO_VERSION=RELEASE.2025-05-21T01-59-54Z
+# https://github.com/mikefarah/yq/releases
+ARG YQ_VERSION=4.53.3
 # https://github.com/cloudflare/cloudflared/releases
 ARG CLOUDFLARED_VERSION=2025.7.0
 # https://www.postgresql.org/support/versioning/
@@ -88,6 +90,12 @@ RUN npm run build
 # Stage 3: Get MinIO client
 # =================================================================
 FROM minio/mc:${MINIO_VERSION} AS minio-client
+
+# =================================================================
+# Stage 4: Get yq (YAML processor — used to normalize compose files
+# that use YAML anchors, which Symfony YAML cannot parse)
+# =================================================================
+FROM mikefarah/yq:${YQ_VERSION} AS yq-client
 
 # =================================================================
 # Final Stage: Production image
@@ -204,6 +212,11 @@ RUN mkdir -p /etc/nginx/conf.d && \
 # Install MinIO client
 COPY --from=minio-client /usr/bin/mc /usr/bin/mc
 RUN chmod +x /usr/bin/mc
+
+# Install yq — normalizes/explodes YAML anchors in user compose files that
+# Symfony YAML cannot parse (see Application::normalizeComposeYaml)
+COPY --from=yq-client /usr/bin/yq /usr/local/bin/yq
+RUN chmod +x /usr/local/bin/yq
 
 # Switch to non-root user
 USER www-data

@@ -90,6 +90,22 @@ class Service extends BaseModel
         });
     }
 
+    /**
+     * Normalize compose YAML on assignment so Coolify's parser (Symfony YAML) can
+     * read it — see normalizeDockerComposeYaml(). Centralized on the setter so
+     * every write is covered (StackForm, EditCompose, the API).
+     */
+    protected function setDockerComposeRawAttribute($value): void
+    {
+        $this->attributes['docker_compose_raw'] = (is_string($value) && $value !== '')
+            ? normalizeDockerComposeYaml($value, [
+                'model' => 'service',
+                'service_id' => $this->id,
+                'service_name' => $this->name,
+            ])
+            : $value;
+    }
+
     public function isConfigurationChanged(bool $save = false)
     {
         $domains = $this->applications()->get()->pluck('fqdn')->sort()->toArray();

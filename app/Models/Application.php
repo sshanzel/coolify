@@ -2007,6 +2007,7 @@ class Application extends BaseModel
             instant_remote_process($commands, $this->destination->server, false);
         }
         if ($composeFileContent) {
+            // The docker_compose_raw setter normalizes the YAML (anchors, etc.) centrally.
             $this->docker_compose_raw = $composeFileContent;
             $this->save();
             $parsedServices = $this->parse();
@@ -2053,6 +2054,24 @@ class Application extends BaseModel
 
             throw new RuntimeException("Docker Compose file not found at: $workdir$composeFile (branch: {$this->git_branch})<br><br>Check if you used the right extension (.yaml or .yml) in the compose file name.");
         }
+    }
+
+    /**
+     * Normalize compose YAML on assignment so Coolify's parser (Symfony YAML) can
+     * read it — see normalizeDockerComposeYaml(). Centralized on the setter so
+     * EVERY write is covered by one hook: git-load, the UI paste path, and the API.
+     */
+    protected function setDockerComposeRawAttribute($value): void
+    {
+        $this->attributes['docker_compose_raw'] = (is_string($value) && $value !== '')
+            ? normalizeDockerComposeYaml($value, [
+                'model' => 'application',
+                'application_id' => $this->id,
+                'application_name' => $this->name,
+                'compose_location' => $this->docker_compose_location,
+                'git_branch' => $this->git_branch,
+            ])
+            : $value;
     }
 
     public function parseContainerLabels(?ApplicationPreview $preview = null)
