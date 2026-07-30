@@ -17,6 +17,14 @@ return [
         'versions_url' => env('VERSIONS_URL', env('CDN_URL', 'https://cdn.coollabs.io').'/coolify/versions.json'),
         'upgrade_script_url' => env('UPGRADE_SCRIPT_URL', env('CDN_URL', 'https://cdn.coollabs.io').'/coolify/upgrade.sh'),
         'releases_url' => env('RELEASES_URL', 'https://cdn.coollabs.io/coolify/releases.json'),
+        // TEMPORARY (fork): allow a credentialed HTTPS git URL
+        // (https://oauth2:<token>@host/...) for a PRIVATE self-hosted repo where SSH
+        // deploy keys are unreachable (git SSH/:22 blocked). Relaxes the shell-metachar
+        // blocklist in App\Rules\ValidGitRepositoryUrl — the URL is escapeshellarg()'d
+        // wherever it reaches a shell, so this stays injection-safe. Off by default;
+        // NOTE it leaves the token plaintext in `applications.git_repository`. Superseded
+        // by the proper self-hosted Git source integration (docs/gitlab-integration-plan.md).
+        'allow_git_url_credentials' => env('COOLIFY_ALLOW_GIT_URL_CREDENTIALS', false),
     ],
 
     'urls' => [

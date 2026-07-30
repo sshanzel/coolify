@@ -46,6 +46,16 @@ The integration below solves both.
   *Settings → Webhooks* (push events on `main`). A GitLab admin must allow local-network
   webhooks for it to reach an internal Coolify.
 
+### Temporary patch shipped (remove once WS1–WS3 land)
+
+`ValidGitRepositoryUrl` rejects credentialed HTTPS URLs because the token trips a
+shell-metachar blocklist (SSH deploy keys are unreachable here, so token-in-URL is the only
+option). Gated a bypass behind **`COOLIFY_ALLOW_GIT_URL_CREDENTIALS`** (config
+`constants.coolify.allow_git_url_credentials`, off by default) that skips the blocklist — safe
+because the URL is `escapeshellarg()`'d downstream. It leaves the token **plaintext** in
+`applications.git_repository`; the proper Git source integration (below) removes both the
+blocklist workaround and the plaintext credential.
+
 ## Target design — a first-class GitLab source
 
 Mirror the existing GitHub App source so a tenant connects GitLab once and clone-auth,

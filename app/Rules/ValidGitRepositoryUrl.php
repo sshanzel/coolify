@@ -27,6 +27,14 @@ class ValidGitRepositoryUrl implements ValidationRule
             return;
         }
 
+        // The URL is escapeshellarg()'d wherever it reaches a shell, so this metachar
+        // blocklist is defence-in-depth. Self-hosted setups behind a trusted network may
+        // need a credentialed HTTPS URL (https://oauth2:<token>@host/...) whose token trips
+        // it; COOLIFY_ALLOW_GIT_URL_CREDENTIALS opts out of the blocklist (all the structural
+        // URL validation below still applies). Off by default. Proper fix: the self-hosted
+        // Git source integration (docs/gitlab-integration-plan.md).
+        $allowCredentialsInUrl = (bool) config('constants.coolify.allow_git_url_credentials');
+
         // Check for dangerous shell metacharacters that could be used for command injection
         $dangerousChars = [
             ';', '|', '&', '$', '`', '(', ')', '{', '}',
@@ -36,7 +44,7 @@ class ValidGitRepositoryUrl implements ValidationRule
         ];
 
         foreach ($dangerousChars as $char) {
-            if (str_contains($value, $char)) {
+            if (! $allowCredentialsInUrl && str_contains($value, $char)) {
                 Log::warning('Git repository URL validation failed - dangerous character', [
                     'url' => $value,
                     'character' => $char,
@@ -63,7 +71,7 @@ class ValidGitRepositoryUrl implements ValidationRule
         ];
 
         foreach ($dangerousPatterns as $pattern) {
-            if (preg_match($pattern, $value)) {
+            if (! $allowCredentialsInUrl && preg_match($pattern, $value)) {
                 Log::warning('Git repository URL validation failed - dangerous pattern', [
                     'url' => $value,
                     'pattern' => $pattern,
