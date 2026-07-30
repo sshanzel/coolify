@@ -57,6 +57,39 @@ slips through, that log line is where to start.
 
 ---
 
+## Building & shipping the fork image
+
+The deploy image is **`docker.io/sshanzel/coolify:v4.x`** (what the compose on the target
+host pulls). Your git changes don't reach a running server until you rebuild + push this
+image and the host re-pulls it.
+
+1. **Build + push** — from a machine with `buildx` + a Docker Hub login:
+   ```bash
+   docker login
+   docker buildx build --platform linux/amd64 \
+     -f docker/production/Dockerfile \
+     -t docker.io/sshanzel/coolify:v4.x \
+     --push .
+   ```
+   Behind a TLS-intercepting proxy (Zscaler), drop the corporate root CA into
+   `docker/certs/*.pem` first (gitignored; injected at build) — otherwise the build fails
+   on cert verification.
+
+2. **Update the running host** — pull the new image and recreate only the `coolify`
+   container (postgres/redis/realtime keep running):
+   ```bash
+   sudo bash -c 'cd /data/coolify/source && \
+     docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.seccomp.yml pull coolify && \
+     docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.seccomp.yml up -d --force-recreate coolify'
+   ```
+   The image runs DB migrations on start; the current fork changes add none, so it's a
+   clean swap.
+
+This ships the **image** (built from your local checkout → Docker Hub) and is independent
+of where the git repo lives — moving the repo to GitLab doesn't affect the build.
+
+---
+
 ## Planned work
 
 - **Self-hosted GitLab integration** — a first-class GitLab source (HTTPS auth, nested
